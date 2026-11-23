@@ -86,6 +86,8 @@
       </form>
     </div>
 
+    <DeliveryPanel v-if="meta.delivery" :default-source="deliverySource" />
+
     <footer class="page-foot">
       <span>共 {{ total }} 条{{ meta.name }}记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -104,6 +106,7 @@ import {
   runAction as applyAction,
 } from '@/api/backend-service'
 import type { EntryRow } from '@/data/types'
+import DeliveryPanel from '@/views/DeliveryPanel.vue'
 
 const props = defineProps<{ moduleKey: string }>()
 const meta = moduleMeta(props.moduleKey)
@@ -129,6 +132,12 @@ const statusSummary = computed(() =>
     count: rows.value.filter((row) => String(row.status) === status).length,
   })),
 )
+// 交付面板默认指向当前列表里第一条记录的关联源，省去手工输入。
+const deliverySource = computed(() => {
+  const first = rows.value[0]
+  const related = first && (first['关联源'] ?? first['记录编号'])
+  return related ? String(related) : 'LOG_-0003'
+})
 
 function resetFilters() {
   filters.value = {}

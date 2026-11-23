@@ -70,3 +70,17 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .analysis-chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding: 12px 0; }
 .analysis-bar { flex: 1; border-radius: 4px 4px 0 0; background: var(--brand); min-width: 24px; position: relative; transition: height 0.4s; }
 .analysis-bar span { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+/* 可恢复交付记录面板 */
+.delivery-panel { margin-top: 20px; padding: 16px; background: #fff; border: 1px solid var(--border); border-radius: 8px; }
+.delivery-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.delivery-head h3 { margin: 0; font-size: 15px; }
+.delivery-form { display: flex; gap: 8px; align-items: flex-end; }
+.delivery-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.delivery-form input { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+.delivery-summary { display: flex; gap: 12px; margin: 12px 0; }
+.delivery-summary > div { flex: 1; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.delivery-message { font-size: 13px; color: var(--muted); margin: 4px 0 8px; }
+.delivery-warning { font-size: 13px; color: #b54708; background: #fffaeb; border: 1px solid #fedf89; border-radius: 6px; padding: 8px 10px; }
+.delivery-summary[data-status='partially_committed'] { border-color: #fedf89; }
+.delivery-panel h4 { font-size: 13px; margin: 16px 0 6px; }

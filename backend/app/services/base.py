@@ -115,6 +115,31 @@ class BaseModuleService:
                 written += 1
         return written
 
+    def _replace_jsonl(self, filepath: Path, records: list[dict[str, Any]]) -> int:
+        """原子覆盖写入 JSONL：用于可重复执行的解析/映射产物。
+
+        与 ``_write_jsonl`` 的追加语义不同，这里先写临时文件再替换，
+        重复执行不会产生重复行，中断时也不会留下半份文件。
+        """
+        _ensure_dir(filepath.parent)
+        tmp = filepath.with_name(
+            f".{filepath.name}.tmp-{os.getpid()}-{time.time_ns()}"
+        )
+        written = 0
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                for rec in records:
+                    f.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
+                    written += 1
+            os.replace(tmp, filepath)
+        finally:
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+        return written
+
     def _read_jsonl(self, filepath: Path) -> list[dict[str, Any]]:
         if not filepath.exists():
             return []

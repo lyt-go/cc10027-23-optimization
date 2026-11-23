@@ -11,13 +11,16 @@
 .
 ├── frontend/                 Vue 3 + Vite + TypeScript 前端
 │   ├── src/views/WorkbenchView.vue|tsx  全部模块共享工作台
+│   ├── src/views/DeliveryPanel.vue      可恢复交付记录面板（位点/格式输出）
 │   ├── src/data/modules.ts              18个业务模块配置
 │   ├── src/api/              统一请求封装
 │   └── vite.config.ts        dev server 配置（open: false）
 ├── backend/                  FastAPI（Python） 后端
 │   ├── app/routers/resource.py  通用查询/导出/登记/动作接口
+│   ├── app/routers/delivery.py  位点提交/重试/清单/成品下载接口
 │   ├── app/services/<key>.py    每个模块独立领域逻辑
 │   ├── app/services/base.py     共享服务骨架
+│   ├── app/services/delivery.py 可恢复交付账本（原子写入）
 │   └── app/store.py          内存数据仓库与示例数据
 ├── .gitignore
 └── docker-compose.yml
@@ -76,6 +79,45 @@ npm run dev
   `frontend/src/domain/<模块>.ts`，用于承载真实业务差异并维持36题位容量。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 可恢复交付记录
+
+位点提交不再等同于“改一个状态字段”，而是生成一份可追查的交付记录：
+
+- **提交与交付分离**：位点提交先把本次行范围写入交付账本，再生成成品；
+  成品按行范围、行数、摘要校验通过后才确认。位点已推进但成品失败时，
+  返回 `committed=true / complete=false`，位点进度不回退。
+- **旧成品不被改写**：成品先写临时文件，校验通过后原子替换正式文件；
+  生成中断只清理临时文件，上一次可下载的成品原样保留。
+- **清单可重新核对**：`GET /api/delivery/{source_key}/manifest` 同时给出
+  `checkpoint_line`、`confirmed_line`、`pending_range`、成品校验结果、
+  交付/下载历史和 `next_action`，刷新或换人打开都能继续处理。
+- **只确认一次**：重试复用同一条未完成交付记录；重复提交同一位点只做复核
+  （`replayed=true`），不会新增记录或重复确认。
+- **下载状态可继续处理**：成品未覆盖请求行时返回 `409` 和
+  `pending_range`、`retry_url`；显式 `allow_stale=true` 才会下载旧成品，
+  并在响应头和下载记录里标记 `stale`。
+
+接口：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/delivery/{source_key}/commit` | 提交当前位点并生成、校验、确认成品 |
+| POST | `/api/delivery/{source_key}/retry` | 重试未完成交付；或按已确认范围修复缺失成品 |
+| GET | `/api/delivery/{source_key}/manifest` | 导出清单：确认范围、待办范围、交付与下载记录 |
+| GET | `/api/delivery/{source_key}/download?line=N` | 下载已确认成品；`allow_stale=true` 可下载旧成品 |
+
+复现“提交成功但文件生成中断”的演练方式（一次性故障，重试自动恢复）：
+
+```bash
+curl -X POST 'http://127.0.0.1:8000/api/delivery/faults?target=format_output&after_lines=40'
+curl -X POST http://127.0.0.1:8000/api/delivery/LOG_-0003/commit   # committed=true, complete=false
+curl        http://127.0.0.1:8000/api/delivery/LOG_-0003/manifest # pending_range=101-200
+curl -X POST http://127.0.0.1:8000/api/delivery/LOG_-0003/retry    # 确认一次，成品 1-200
+```
+
+后端测试：`cd backend && .venv/bin/python -m pytest -q test_cross_module.py test_delivery_recovery.py`；
+完整场景脚本：`.venv/bin/python scenario_delivery.py`。
 
 领域：数据工程
 子方向：数据采集、爬虫与RPA

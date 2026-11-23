@@ -39,13 +39,14 @@ class LogParserService(BaseModuleService):
                 parsed.append(parsed_entry)
 
         output_file = self._data_dir("logs") / f"{source_key}_parsed.jsonl"
-        written = self._write_jsonl(output_file, parsed)
+        # 解析是整文件重算：原子覆盖而不是追加，重试/重放不会产生重复行。
+        written = self._replace_jsonl(output_file, parsed)
 
+        error_file = self._data_dir("logs") / f"{source_key}_parse_errors.jsonl"
         if errors:
-            self._write_jsonl(
-                self._data_dir("logs") / f"{source_key}_parse_errors.jsonl",
-                errors
-            )
+            self._replace_jsonl(error_file, errors)
+        elif error_file.exists():
+            error_file.unlink()
 
         self._write_checkpoint(f"{source_key}_parse", {
             "total": len(records),
